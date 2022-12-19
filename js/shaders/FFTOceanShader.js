@@ -7,6 +7,7 @@
  * 
  * Modified:
  * @author jbouny / https://github.com/fft-ocean
+ * @author jlcercos / https://github.com/sanguinariojoe
  */
  
 // Author: Aleksandr Albert
@@ -100,7 +101,9 @@ THREE.ShaderLib['ocean_subtransform'] = {
 };
 THREE.ShaderLib['ocean_initial_spectrum'] = {
 	uniforms: {
-		"u_wind": { type: "v2", value: new THREE.Vector2(10.0, 10.0) },
+		"u_dir": { type: "v2", value: new THREE.Vector2(0.7071067811865475, 0.7071067811865475) },
+		"u_hs": { type: "f", value: 5.0 },
+		"u_tp": { type: "f", value: 30.0 },
 		"u_resolution": { type: "f", value: 512.0 },
 		"u_size": { type: "f", value: 250.0 },
 	},
@@ -111,7 +114,9 @@ THREE.ShaderLib['ocean_initial_spectrum'] = {
 		'const float KM = 370.0;',
 		'const float CM = 0.23;',
 
-		'uniform vec2 u_wind;',
+		'uniform vec2 u_dir;',
+		'uniform float u_hs;',
+		'uniform float u_tp;',
 		'uniform float u_resolution;',
 		'uniform float u_size;',
 		
@@ -136,9 +141,9 @@ THREE.ShaderLib['ocean_initial_spectrum'] = {
 			'vec2 K = (2.0 * PI * vec2(n, m)) / u_size;',
 			'float k = length(K);',
 			
-			'float l_wind = length(u_wind);',
+			'float l_wind = 0.5 * square(u_hs);',
 
-			'float Omega = 0.84;',
+			'float Omega = 2.0 * PI / u_tp;',
 			'float kp = G * square(Omega / l_wind);',
 
 			'float c = omega(k) / k;',
@@ -163,9 +168,9 @@ THREE.ShaderLib['ocean_initial_spectrum'] = {
 			'float am = 0.13 * uStar / CM;',
 			'float Delta = tanh(a0 + 4.0 * pow(c / cp, 2.5) + am * pow(CM / c, 2.5));',
 
-			'float cosPhi = dot(normalize(u_wind), normalize(K));',
+			'float cosPhi = dot(u_dir, normalize(K));',
 
-			'float S = (1.0 / (2.0 * PI)) * pow(k, -4.0) * (Bl + Bh) * (1.0 + Delta * (2.0 * cosPhi * cosPhi - 1.0));',
+			'float S = max((1.0 / (2.0 * PI)) * pow(k, -4.0) * (Bl + Bh) * (1.0 + Delta * (2.0 * cosPhi * cosPhi - 1.0)), 0.0);',
 
 			'float dk = 2.0 * PI / u_size;',
 			'float h = sqrt(S / 2.0) * dk;',
@@ -224,7 +229,9 @@ THREE.ShaderLib['ocean_spectrum'] = {
 		"u_resolution": { type: "f", value: null },
 		"u_choppiness": { type: "f", value: null },
 		"u_phases": { type: "t", value: null },
-		"u_initialSpectrum": { type: "t", value: null },
+		"u_windSpectrum": { type: "t", value: null },
+		"u_swell1Spectrum": { type: "t", value: null },
+		"u_swell2Spectrum": { type: "t", value: null },
 	},
 	varying: {
 		"vUV": { type: "v2" }
@@ -241,7 +248,9 @@ THREE.ShaderLib['ocean_spectrum'] = {
 		'uniform float u_resolution;',
 		'uniform float u_choppiness;',
 		'uniform sampler2D u_phases;',
-		'uniform sampler2D u_initialSpectrum;',
+		'uniform sampler2D u_windSpectrum;',
+		'uniform sampler2D u_swell1Spectrum;',
+		'uniform sampler2D u_swell2Spectrum;',
 
 		'vec2 multiplyComplex (vec2 a, vec2 b) {',
 			'return vec2(a[0] * b[0] - a[1] * b[1], a[1] * b[0] + a[0] * b[1]);',
@@ -264,8 +273,9 @@ THREE.ShaderLib['ocean_spectrum'] = {
 			'float phase = texture2D(u_phases, vUV).r;',
 			'vec2 phaseVector = vec2(cos(phase), sin(phase));',
 
-			'vec2 h0 = texture2D(u_initialSpectrum, vUV).rg;',
-			'vec2 h0Star = texture2D(u_initialSpectrum, vec2(1.0 - vUV + 1.0 / u_resolution)).rg;',
+			'vec2 h0 = texture2D(u_windSpectrum, vUV).rg + texture2D(u_swell1Spectrum, vUV).rg + texture2D(u_swell2Spectrum, vUV).rg;',
+			'vec2 vUVStart = vec2(1.0 - vUV + 1.0 / u_resolution);',
+			'vec2 h0Star = texture2D(u_windSpectrum, vUVStart).rg + texture2D(u_swell1Spectrum, vUVStart).rg + texture2D(u_swell2Spectrum, vUVStart).rg;',
 			'h0Star.y *= -1.0;',
 
 			'vec2 h = multiplyComplex(h0, phaseVector) + multiplyComplex(h0Star, vec2(phaseVector.x, -phaseVector.y));',

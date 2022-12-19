@@ -188,24 +188,34 @@ var DEMO =
 		this.ms_Scene.add( this.ms_CloudShader.cloudMesh );
 
 		// Initialize Ocean
-		var gsize = 512;
+		var gsize = 1024;
 		var res = 512;
-		var gres = 256;
+		var gres = 512;
 		var origx = -gsize / 2;
 		var origz = -gsize / 2;
+		var ocean_color_f = 1.0 / 5.0;
 		this.ms_Ocean = new THREE.Ocean( this.ms_Renderer, this.ms_Camera, this.ms_Scene,
 		{
-			INITIAL_SIZE : 200.0,
+			INITIAL_SIZE : 512.0,
 			INITIAL_WIND : [ 10.0, 10.0 ],
-			INITIAL_CHOPPINESS : 3.6,
+			INITIAL_CHOPPINESS : 2.0,
 			CLEAR_COLOR : [ 1.0, 1.0, 1.0, 0.0 ],
 			SUN_DIRECTION : this.ms_MainDirectionalLight.position.clone(),
-			OCEAN_COLOR: new THREE.Vector3( 0.35, 0.4, 0.45 ),
-			SKY_COLOR: new THREE.Vector3( 10.0, 13.0, 15.0 ),
+			OCEAN_COLOR: new THREE.Vector3( ocean_color_f * 6.7, ocean_color_f * 11.0, ocean_color_f * 13.3 ),
+			SKY_COLOR: new THREE.Vector3( 52.0, 140.0, 154.0 ),
 			EXPOSURE : 0.15,
 			GEOMETRY_RESOLUTION: gres,
 			GEOMETRY_SIZE : gsize,
-			RESOLUTION : res
+			RESOLUTION : res,
+			INITIAL_WIND_DIR : 30.0,
+			INITIAL_WIND_HS: 3.5,
+			INITIAL_WIND_TP: 20.0,
+			INITIAL_SWELL1_DIR: 25.0,
+			INITIAL_SWELL1_HS: 5.0,
+			INITIAL_SWELL1_TP: 30.0,
+			INITIAL_SWELL2_DIR: -55.0,
+			INITIAL_SWELL2_HS: 0.9,
+			INITIAL_SWELL2_TP: 30.0,
 		} );
 
 		this.LoadSkyBox();
@@ -216,7 +226,7 @@ var DEMO =
 
 		// Initialize UI
 		var gui = new dat.GUI();
-		dat.GUI.toggleHide();
+		// dat.GUI.toggleHide();
 
 		gui.add( this.ms_Ocean, "size", 10, 2000 ).onChange( function( v ) {
 			this.object.size = v;
@@ -383,7 +393,7 @@ var DEMO =
 				textureName = 'miramar';
 				directionalLightPosition = new THREE.Vector3( 0.3, 1.0, 0.5 );
 				directionalLightColor = new THREE.Color( 0.9, 0.95, 1 );
-				raining = true;
+				raining = false;
 				break;
 			case 'sunset':
 				textureName = 'sunset';

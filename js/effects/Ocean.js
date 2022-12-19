@@ -47,6 +47,16 @@ THREE.Ocean = function (renderer, camera, scene, options) {
 	this.windY = optionalParameterArray(options.INITIAL_WIND, 1, 10.0),
 	this.size = optionalParameter(options.INITIAL_SIZE, 250.0),
 	this.choppiness = optionalParameter(options.INITIAL_CHOPPINESS, 1.5);
+	// New weather options
+	this.wind_dir = Math.PI / 180.0 * optionalParameter(options.INITIAL_WIND_DIR, 30.0),
+	this.wind_hs = optionalParameter(options.INITIAL_WIND_HS, 7.5),
+	this.wind_tp = optionalParameter(options.INITIAL_WIND_TP, 20.0),
+	this.swell1_dir = Math.PI / 180.0 * optionalParameter(options.INITIAL_SWELL1_DIR, 25.0),
+	this.swell1_hs = optionalParameter(options.INITIAL_SWELL1_HS, 2.2),
+	this.swell1_tp = optionalParameter(options.INITIAL_SWELL1_TP, 30.0),
+	this.swell2_dir = Math.PI / 180.0 * optionalParameter(options.INITIAL_SWELL2_DIR, -55.0),
+	this.swell2_hs = optionalParameter(options.INITIAL_SWELL2_HS, 0.6),
+	this.swell2_tp = optionalParameter(options.INITIAL_SWELL2_TP, 30.0),
 	
 	this.matrixNeedsUpdate = false;
 	
@@ -74,7 +84,9 @@ THREE.Ocean = function (renderer, camera, scene, options) {
 	LinearRepeatParams.minFilter = LinearRepeatParams.magFilter = THREE.LinearFilter ;
 	LinearRepeatParams.wrapS = LinearRepeatParams.wrapT = THREE.RepeatWrapping ;
 	
-	this.initialSpectrumFramebuffer = new THREE.WebGLRenderTarget(this.resolution, this.resolution, NearestRepeatParams);
+	this.windSpectrumFramebuffer = new THREE.WebGLRenderTarget(this.resolution, this.resolution, NearestRepeatParams);
+	this.swell1SpectrumFramebuffer = new THREE.WebGLRenderTarget(this.resolution, this.resolution, NearestRepeatParams);
+	this.swell2SpectrumFramebuffer = new THREE.WebGLRenderTarget(this.resolution, this.resolution, NearestRepeatParams);
 	this.spectrumFramebuffer = new THREE.WebGLRenderTarget(this.resolution, this.resolution, NearestClampParams);
 	this.pingPhaseFramebuffer = new THREE.WebGLRenderTarget(this.resolution, this.resolution, NearestClampParams);
 	this.pongPhaseFramebuffer = new THREE.WebGLRenderTarget(this.resolution, this.resolution, NearestClampParams);
@@ -123,7 +135,9 @@ THREE.Ocean = function (renderer, camera, scene, options) {
 		vertexShader: fullscreeenVertexShader.vertexShader,
 		fragmentShader:initialSpectrumShader.fragmentShader
 	});
-	this.materialInitialSpectrum.uniforms.u_wind = { type: "v2", value: new THREE.Vector2() };
+	this.materialInitialSpectrum.uniforms.u_dir = { type: "v2", value: new THREE.Vector2() };
+	this.materialInitialSpectrum.uniforms.u_hs = { type: "f", value: 0.0 };
+	this.materialInitialSpectrum.uniforms.u_tp = { type: "f", value: 30.0 };
 	this.materialInitialSpectrum.uniforms.u_resolution = { type: "f", value: this.resolution };
 	this.materialInitialSpectrum.depthTest = false;
 	
@@ -146,7 +160,9 @@ THREE.Ocean = function (renderer, camera, scene, options) {
 		vertexShader: fullscreeenVertexShader.vertexShader,
 		fragmentShader: spectrumShader.fragmentShader
 	});
-	this.materialSpectrum.uniforms.u_initialSpectrum = { type: "t", value: null };
+	this.materialSpectrum.uniforms.u_windSpectrum = { type: "t", value: null };
+	this.materialSpectrum.uniforms.u_swell1Spectrum = { type: "t", value: null };
+	this.materialSpectrum.uniforms.u_swell2Spectrum = { type: "t", value: null };
 	this.materialSpectrum.uniforms.u_resolution = { type: "f", value: this.resolution };
 	this.materialSpectrum.uniforms.u_choppiness.value = this.choppiness ;
 	this.materialSpectrum.depthTest = false;
@@ -278,10 +294,23 @@ THREE.Ocean.prototype.generateSeedPhaseTexture = function() {
 THREE.Ocean.prototype.renderInitialSpectrum = function () {
 
 	this.scene.overrideMaterial = this.materialInitialSpectrum;
-	this.materialInitialSpectrum.uniforms.u_wind.value.set( this.windX, this.windY );
+	this.materialInitialSpectrum.uniforms.u_dir.value.set( Math.cos(this.wind_dir), Math.sin(this.wind_dir) );
+	this.materialInitialSpectrum.uniforms.u_hs.value = this.wind_hs;
+	this.materialInitialSpectrum.uniforms.u_tp.value = this.wind_tp;
 	this.materialInitialSpectrum.uniforms.u_size.value = this.size;
-	this.renderer.render(this.scene, this.oceanCamera, this.initialSpectrumFramebuffer, true);
-	
+	this.renderer.render(this.scene, this.oceanCamera, this.windSpectrumFramebuffer, true);
+	this.scene.overrideMaterial = this.materialInitialSpectrum;
+	this.materialInitialSpectrum.uniforms.u_dir.value.set( Math.cos(this.swell1_dir), Math.sin(this.swell1_dir) );
+	this.materialInitialSpectrum.uniforms.u_hs.value = this.swell1_hs;
+	this.materialInitialSpectrum.uniforms.u_tp.value = this.swell1_tp;
+	this.materialInitialSpectrum.uniforms.u_size.value = this.size;
+	this.renderer.render(this.scene, this.oceanCamera, this.swell1SpectrumFramebuffer, true);
+	this.scene.overrideMaterial = this.materialInitialSpectrum;
+	this.materialInitialSpectrum.uniforms.u_dir.value.set( Math.cos(this.swell2_dir), Math.sin(this.swell2_dir) );
+	this.materialInitialSpectrum.uniforms.u_hs.value = this.swell2_hs;
+	this.materialInitialSpectrum.uniforms.u_tp.value = this.swell2_tp;
+	this.materialInitialSpectrum.uniforms.u_size.value = this.size;
+	this.renderer.render(this.scene, this.oceanCamera, this.swell2SpectrumFramebuffer, true);
 };
 
 THREE.Ocean.prototype.renderWavePhase = function () {
@@ -304,7 +333,9 @@ THREE.Ocean.prototype.renderWavePhase = function () {
 THREE.Ocean.prototype.renderSpectrum = function () {
 
 	this.scene.overrideMaterial = this.materialSpectrum;
-	this.materialSpectrum.uniforms.u_initialSpectrum.value = this.initialSpectrumFramebuffer;
+	this.materialSpectrum.uniforms.u_windSpectrum.value = this.windSpectrumFramebuffer;
+	this.materialSpectrum.uniforms.u_swell1Spectrum.value = this.swell1SpectrumFramebuffer;
+	this.materialSpectrum.uniforms.u_swell2Spectrum.value = this.swell2SpectrumFramebuffer;
 	this.materialSpectrum.uniforms.u_phases.value = this.pingPhase ? this.pingPhaseFramebuffer : this.pongPhaseFramebuffer;
 	//this.materialSpectrum.uniforms.u_choppiness.value = this.choppiness ;
 	this.materialSpectrum.uniforms.u_size.value = this.size ;
